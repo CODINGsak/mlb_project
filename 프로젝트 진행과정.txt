@@ -45,3 +45,13 @@ position = get_player_stats(position, 'Unknown')
 -----------------------------------------------
 10월 13일
 시각화 실습
+compare_players_rosters() 결과를 pandas.DataFrame으로 정리
+Matplotlib 또는 Seaborn을 활용한 막대그래프 시각화 구현
+*pip install
+-------------------------------------------------
+10월 15일(예정)
+Streamlit 기초 + 레이아웃 설계
+-------------------------------------------------
+10월 19일(예정)
+Streamlit 대시보드 구현 시작 
+최종:Plotly로 Streamlit에 연결

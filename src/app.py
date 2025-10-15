@@ -1,6 +1,9 @@
+import pandas as pd
 import requests
 import json
 import os
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 #주요 api 설명
 #날짜별 경기목록
@@ -172,7 +175,20 @@ for player in roster[:5]: #상위 5명을 출력
 
 selected_players = roster[:2]  # 예시로 상위 2명 비교
 
-#비교결과 출력 test
+#비교결과 pandas출력 test
+#DataFrame변환
 result = compare_players_rosters(selected_players)
-print("\nComparison result:")
-print(json.dumps(result, indent=4))
+df = pd.DataFrame.from_dict(result, orient='index')
+df_clean = df.replace("N/A", pd.NA).dropna(axis=1, how='all')  # N/A 제거
+df_numeric = df_clean.apply(pd.to_numeric, errors='coerce')    # 숫자형 변환
+print(df) 
+
+#matplotlib으로 막대그래프 그리기
+df_numeric.plot(kind='bar', figsize=(10, 6))
+plt.title("MLB 선수별 주요 지표 비교")
+plt.ylabel("값")
+plt.xlabel("선수 이름")
+plt.xticks(rotation=45)
+plt.legend(title="지표")
+plt.tight_layout()
+plt.show()
