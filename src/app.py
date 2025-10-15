@@ -94,6 +94,7 @@ team_ids = {
 }
 
 # 팀id에서 선수리스트 가져오기
+# 타자/투수 자동 구분이 가능하도록 리팩토링
 def get_team_roster(team_name):
     team_id = team_ids.get(team_name)
     if not team_id:
@@ -106,46 +107,72 @@ def get_team_roster(team_name):
         response.raise_for_status()
         data = response.json()
         roster = data.get('roster', [])
-        #return값에 이름과 id를 함께 반환하도록 시킴
-        return [
-            {
-                "name": player['person']['fullName'],
-                "id": player['person']['id']
-            }
-            for player in roster
-        ]
+        
+        enriched_roster = []
+        for player in roster:
+            player_id = player['person']['id']
+            player_name = player['person']['fullName']
+            #선수 상세정보 호출 api
+            detail_url = f"https://statsapi.mlb.com/api/v1/people/{player_id}"
+            detail_resp = requests.get(detail_url)
+            detail_resp.raise_for_status()
+            detail_data = detail_resp.json()
+            position = detail_data.get('people', [{}])[0].get('primaryPosition', {}).get('name', 'Unknown')
+
+            enriched_roster.append({
+                "name" : player_name,
+                "id" : player_id,
+                "position" : position
+            })
+
+        return enriched_roster
+
     except requests.exceptions.RequestException as e:
         print(f"Error fetching roster for {team_name}: {e}")
         return []
 
 #선수별 2개이상 데이터 받는 함수, 선수별 비교 기능 구현 함수
+#포지션별로 분기해서 타자/투수별 비교 지표 다르게 구성
 def compare_players_rosters(roster, season='2025'):
     comparison = {}
     for player in roster:
         name = player['name']
         player_id = player['id']
+        position = player.get("position", "Unknown")
+        
         stats = get_player_stats(player_id, season)
-        if stats:
-            #주요 추출 지표(타자 기준)
-            #stat이라는 변수 안에, stats 리스트의 첫 번째 원소에서 'stat' 키에 해당하는 값을 추출해서 넣기
-            stat = stats[0]['stat']
+        if not stats:
+            comparison[name] = {"Note": "No stats available"}
+            continue        
+        stat = stats[0].get('stat',{})
+            
+        if position == "Pitcher":    
             comparison[name] = {
-                "AVG": stat.get("avg"),
-                "HR": stat.get("homeRuns"),
-                "OPS": stat.get("ops"),
-                "RBI": stat.get("rbi")
+                "ERA": stat.get("era") or "N/A",
+                "SO": stat.get("strikeOuts") or "N/A",
+                "WHIP": stat.get("whip") or "N/A",
+                "W": stat.get("wins") or "N/A"
+            }
+        else :
+            comparison[name] = {
+                "AVG": stat.get("avg") or "N/A",
+                "HR": stat.get("homeRuns") or "N/A",
+                "OPS": stat.get("ops") or "N/A",
+                "RBI": stat.get("rbi") or "N/A"
             }
     return comparison
 
 #api call test
-#player_id = 660271  # Shohei Ohtani
-#stats = get_player_stats(player_id, season='2025')
-#save_stats_json("Shohei_Ohtani", stats)
-
 team_name = "Yankees"
 roster = get_team_roster(team_name)
-print([p['name'] for p in roster])  # 이름만 출력
+#이름+포지션 확인 test
+print("Select team roaster:")
+for player in roster[:5]: #상위 5명을 출력
+    print(f"- {player['name']} ({player['position']})")
 
 selected_players = roster[:2]  # 예시로 상위 2명 비교
+
+#비교결과 출력 test
 result = compare_players_rosters(selected_players)
+print("\nComparison result:")
 print(json.dumps(result, indent=4))
